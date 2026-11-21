@@ -65,7 +65,7 @@
 - **Working Application**:
   - [Raspberry Pi 5 Deployment Instructions](ARM_DEPLOYMENT_GUIDE.md#target-1-raspberry-pi-5-deployment-debian-linux-arm64)
   - [Android Smartphone APK / PWA Instructions](ARM_DEPLOYMENT_GUIDE.md#target-2-android-smartphone-deployment-arm64-v8a)
-- **Demonstration Video**: [1-Minute Storyboard & Script](DEMO_VIDEO_SCRIPT.md) showing airplane mode, leaf capture, INT8 disease detection, and Llama 3.2 1B advisory.
+- **Demonstration Video**: Under 1-minute end-to-end demonstration showing airplane mode, leaf capture, INT8 disease detection, and offline Llama 3.2 1B advisory.
 - **Technical Report**: Comprehensive [Technical Report (TECHNICAL_REPORT.md)](TECHNICAL_REPORT.md) detailing datasets, benchmarks, PTQ quantization tables, and architectural tradeoffs.
 
 ---
