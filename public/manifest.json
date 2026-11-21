@@ -1,0 +1,18 @@
+{
+  "name": "CropShield AI - Kisan Vigyaan Precision Agronomy",
+  "short_name": "CropShield AI",
+  "description": "Offline-First Precision Agronomy, AI Plant Pathology, Satellite GIS, and Direct Farmer Mandi",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0B1329",
+  "theme_color": "#10B981",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
