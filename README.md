@@ -1,72 +1,61 @@
 # 🌾 CropShield AI (Kisan Vigyaan)
-### Autonomous Offline Crop Disease Diagnostics & Llama 3.2 1B Edge Advisory on ARM Hardware
+### Precision Agronomy System: Working Satellite & Cloud Hybrid Prototype with ARM Edge Hardware Roadmap
 
-[![Target: ARM Cortex-A76](https://img.shields.io/badge/Target-ARM%20Cortex--A76%20%7C%20RPi%205-blue.svg)](https://www.raspberrypi.com/products/raspberry-pi-5/)
-[![Offline: 100% Zero-Cloud](https://img.shields.io/badge/Inference-100%25%20Offline-success.svg)](#offline-workflow)
-[![Quantization: INT8 PTQ](https://img.shields.io/badge/Vision%20Model-MobileNetV3%20INT8%20PTQ-green.svg)](#model-quantization)
-[![Advisory: Llama 3.2 1B](https://img.shields.io/badge/Advisory-Llama%203.2%201B%20INT4-orange.svg)](#llama-32-1b-advisory)
-[![Datasets: PlantVillage + PlantDoc + IP102](https://img.shields.io/badge/Datasets-PlantVillage%20%7C%20PlantDoc%20%7C%20IP102-purple.svg)](#datasets)
+[![Submission: Bharat AI-SoC 2026](https://img.shields.io/badge/Challenge-Bharat%20AI--SoC%202026-orange.svg)](#)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Satellite: Copernicus Sentinel-2](https://img.shields.io/badge/Satellite-Copernicus%20Sentinel--2-blue.svg)](#multispectral-satellite-analysis)
+[![Wiki: 176 Entries](https://img.shields.io/badge/Wiki-176%20Entries-green.svg)](wiki/agriculture)
 [![Tests: 30 Passed](https://img.shields.io/badge/Tests-30%2F30%20Passing-brightgreen.svg)](tests/)
 
 ---
 
 ## 📌 Overview
 
-**CropShield AI** is an edge-native precision agronomy system engineered specifically for resource-constrained ARM hardware (Raspberry Pi 5 and Android smartphones). Designed for rural smallholder farmers operating in zero-connectivity agricultural belts, CropShield AI delivers **100% offline crop leaf disease detection, insect pest classification, and personalized spray dosage advisory in under 1.5 seconds**.
+**CropShield AI** is an intelligent agronomic diagnostic and farmland monitoring system built for Indian agriculture. It delivers an operational working prototype featuring real multispectral satellite farmland analytics, cloud-accelerated multimodal diagnosis, an extensive 176-entry agricultural knowledge base, and an offline rule-based fallback advisor, backed by a detailed ARM Edge Hardware deployment roadmap for low-power SoC integration.
 
 ---
 
-## 🚀 Key Technical Highlights
+## 🚀 System Architecture: Two-Tier Framework
 
-1. **100% Offline Workflow**: Zero cloud dependencies or external API calls during inference. Operates in complete airplane mode.
-2. **Lightweight Model Optimization**: Post-Training Quantization (**PTQ**) transforms FP32 models to **INT8** per-channel weights, reducing vision model size from **11.2 MB to 2.85 MB** with a **2.78x speedup**.
-3. **Sequential Execution Pipeline**: Vision, pest, and language models execute sequentially with dynamic garbage collection, capping peak RAM footprint at **1,148 MB** (safe for 2GB/4GB ARM targets).
-4. **Structured Token-Efficient Advisory**: Uses **Llama 3.2 1B-Instruct** in 4-bit quantization (Q4_K_M). Rather than sending raw images, the pipeline passes a compact 118-token structured diagnostic tuple, reducing TTFT to **0.28s** and token cost by **89.7%**.
-5. **Verified Multi-Source Datasets**: Grounded in **PlantVillage** (54,303 laboratory images), **PlantDoc** (2,598 real-field images), and **IP102** (75,222 insect pest images).
+### Tier 1: Operational Working Prototype (Live Today)
 
----
+1. **Multispectral Satellite Farmland Analysis (Sentinel-2)**:
+   - Authenticates to the **Copernicus Data Space Ecosystem (CDSE)**.
+   - Fetches optical, red-edge, and SWIR spectral bands (`B02, B03, B04, B05, B06, B07, B08, B8A, B11, B12`).
+   - Computes real vegetation indices: **NDVI** (Canopy Vigour), **NDMI** (Moisture Stress), **NDRE** (Chlorophyll Activity), and **EVI** (High-Biomass Dynamics).
+   - Detects spatial crop stress hotspots with geo-referenced centroid coordinates and surface area bounds.
 
-## 📊 ARM Hardware Performance Benchmarks
+2. **Cloud-Accelerated Hybrid Diagnostic Engine**:
+   - Uses Groq LPU acceleration (`qwen/qwen3.8-27b`) for deep multimodal leaf disease diagnosis and differential reasoning.
+   - Computes botanical visual similarity and symptom alignment against reference pathologies.
 
-*Empirically measured on ARM Cortex-A76 @ 2.4GHz (Raspberry Pi 5 / Android ARMv8-A):*
+3. **Multilingual Voice Assistant (Chota Kissan)**:
+   - Voice interaction powered by cloud-based Whisper transcription and conversational Qwen reasoning.
+   - Delivers localized spray recommendations and tank dosages in English, Hindi, and Marathi.
 
-| Pipeline Stage | Model Architecture | Precision | Size | Latency | Peak RAM | Accuracy / Output |
-| :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Stage 1: Crop Disease** | MobileNetV3-Small | **INT8 PTQ** | 2.85 MB | **42.6 ms** | 84.5 MB | **96.8% Top-1** |
-| **Stage 2: Pest Classifier** | IP102 Classifier | **INT8 PTQ** | 3.75 MB | **38.2 ms** | 76.2 MB | **91.2% Top-1** |
-| **Stage 3: Advisory Layer** | Llama 3.2 1B-Instruct | **INT4 Q4_K_M** | 745.0 MB | **1,420 ms** | 745.0 MB | 67.2 tok/s |
-| **Full Sequential Flow** | **End-to-End Pipeline** | **INT8 + INT4** | **751.6 MB** | **~1.50 s** | **1,148 MB** | **4.8 Watts** |
+4. **Comprehensive Agriculture Wiki Knowledge Base**:
+   - **176 Wiki entries** covering diseases, symptoms, pathogens, chemical spray dosages (per 15L backpack pump), and organic biocontrols across **27 major Indian crop categories**.
 
----
+5. **Offline Rule-Based Agronomic Advisor**:
+   - Zero-dependency local heuristic engine running directly on the edge client/backend.
+   - Provides deterministic emergency agronomic guidance when internet connectivity is completely unavailable.
 
-## 🛠️ Architecture Workflow
-
-```
-[ Crop Leaf Capture (Camera) ]
-             │
-             ▼
-[ Stage 1: MobileNetV3-Small (INT8 PTQ) ]  ───► 42.6ms (PlantVillage + PlantDoc)
-             │
-             ▼ (Free Stage 1 Tensors)
-[ Stage 2: Sequential IP102 Pest Model ]   ───► 38.2ms (102 Agricultural Pests)
-             │
-             ▼ (Memory Flush: Peak RAM < 1.2GB)
-[ Structured Symbolic Tuple (118 tokens) ]
-             │
-             ▼
-[ Stage 3: Llama 3.2 1B-Instruct (INT4) ]  ───► 1.42s (Knapsack Tank Dosage & Bio-control)
-```
+6. **Farmer Direct Marketplace Simulation**:
+   - Interactive field workflow simulation with `localStorage` persistence for fair-trade produce listings, buyer inquiries, and transaction lifecycle tracking.
 
 ---
 
-## 📦 Project Submission Deliverables
+### Tier 2: Edge Hardware Porting Roadmap (Phase 2 Planning)
 
-- **Source Code**: Complete GitHub repository with backend services, frontend web application, and Android Capacitor project.
-- **Working Application**:
-  - [Raspberry Pi 5 Deployment Instructions](ARM_DEPLOYMENT_GUIDE.md#target-1-raspberry-pi-5-deployment-debian-linux-arm64)
-  - [Android Smartphone APK / PWA Instructions](ARM_DEPLOYMENT_GUIDE.md#target-2-android-smartphone-deployment-arm64-v8a)
-- **Demonstration Video**: Under 1-minute end-to-end demonstration showing airplane mode, leaf capture, INT8 disease detection, and offline Llama 3.2 1B advisory.
-- **Technical Report**: Comprehensive [Technical Report (TECHNICAL_REPORT.md)](TECHNICAL_REPORT.md) detailing datasets, benchmarks, PTQ quantization tables, and architectural tradeoffs.
+For deployment in zero-connectivity rural belts on standalone ARM hardware (such as Raspberry Pi 5 / Android ARMv8-A SoCs), CropShield AI establishes projected target resource budgets and architectural specifications:
+
+| Projected Metric | Target Budget Envelope | Technical Strategy |
+| :--- | :---: | :--- |
+| **Peak RAM Budget** | **< 1,200 MB** | Sequential model execution with explicit memory flushing (`gc.collect()`). |
+| **Power Consumption** | **< 5.0 Watts** | Passive cooling envelope suitable for solar/battery field deployment on ARM Cortex-A76. |
+| **End-to-End Latency** | **< 1.5 seconds** | Post-Training Quantization (INT8 vision models + 4-bit quantized advisory model). |
+| **Vision Model Target** | INT8 PTQ MobileNetV3-Small | Target export to LiteRT / ONNX Runtime Mobile for leaf classification. |
+| **Advisory Model Target** | INT4 Llama 3.2 1B-Instruct | Target deployment via `llama.cpp` / LiteRT using structured token-efficient prompts. |
 
 ---
 
@@ -74,12 +63,15 @@
 
 ### 1. Clone & Setup
 ```bash
-git clone https://github.com/your-username/cropshield-ai.git
+git clone https://github.com/selvajeya143-svg/cropshield-ai.git
 cd cropshield-ai
 
 # Python Backend Setup
 python -m venv venv
-source venv/bin/activate  # On Windows: .\venv\Scripts\activate
+# Windows:
+.\venv\Scripts\activate
+# Linux/macOS:
+# source venv/bin/activate
 pip install -r backend/requirements.txt
 
 # Node Frontend Setup
@@ -87,34 +79,34 @@ npm install
 npm run build
 ```
 
-### 2. Run Edge Hardware Benchmark
+### 2. Run Test Suite
+```bash
+python -m pytest tests/
+# Output: 30 passed in ~12s
+```
+
+### 3. Run Offline Heuristic Advisor & Target Budget Profiler
 ```bash
 python scripts/benchmark_arm_edge.py
 ```
 
-### 3. Run Model Quantization Pipeline (PTQ)
+### 4. Run Quantization Target Specification Generator
 ```bash
 python scripts/quantize_models.py
 ```
 
-### 4. Run Test Suite
-```bash
-pytest tests/
-# Output: 30 passed in < 10s
-```
-
 ### 5. Launch Full Application
 ```bash
-# Terminal 1: Backend
+# Terminal 1: Backend API (Port 8000)
 python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
 
-# Terminal 2: Frontend
+# Terminal 2: Production Web Frontend (Port 5173)
 node server.mjs
-# Visit: http://localhost:5173
+# Open browser at: http://localhost:5173
 ```
 
 ---
 
 ## 📝 License
 
-This project is licensed under the Apache 2.0 License.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

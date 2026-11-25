@@ -18,21 +18,19 @@ from pathlib import Path
 
 logger = logging.getLogger("cropshield.edge_engine")
 
-# Benchmark metadata grounded in verified ARM Cortex-A76 (RPi 5 / Snapdragon) hardware tests
-EDGE_BENCHMARKS = {
+# Projected Resource Budget Targets for planned ARM Cortex-A76 Edge AI Deployment (Roadmap)
+PROJECTED_EDGE_BUDGET = {
     "target_hardware": "ARM Cortex-A76 @ 2.4GHz (Raspberry Pi 5 / Android ARMv8-A)",
-    "vision_model": "MobileNetV3-Small + EfficientNet-B0 (PTQ INT8)",
-    "pest_model": "IP102 Pest Classifier (PTQ INT8)",
-    "llm_model": "Llama 3.2 1B-Instruct (INT4 Q4_K_M)",
+    "vision_model": "MobileNetV3-Small (INT8 PTQ Target Specification)",
+    "pest_model": "IP102 Pest Classifier (INT8 PTQ Target Specification)",
+    "llm_model": "Llama 3.2 1B-Instruct (INT4 Q4_K_M Target Specification)",
     "peak_memory_mb": 1148,
-    "vision_latency_ms": 42.6,
-    "pest_latency_ms": 38.2,
-    "advisory_latency_ms": 1420.0,
-    "total_pipeline_latency_ms": 1500.8,
     "power_consumption_watts": 4.8,
-    "top1_accuracy_percent": 96.8,
-    "datasets": ["PlantVillage (54,303 images)", "PlantDoc (2,598 images)", "IP102 (75,222 images)"]
+    "status": "Projected Hardware Target Specification (Planned Phase 2 Implementation)"
 }
+
+# Retain alias for backward compatibility with API schemas and tests
+EDGE_BENCHMARKS = PROJECTED_EDGE_BUDGET
 
 # Verified Disease Knowledge Mapping (PlantVillage + PlantDoc taxonomy)
 CROP_DISEASE_TAXONOMY = {
@@ -170,16 +168,15 @@ class EdgeInferencePipeline:
 
     def execute_stage1_vision_model(self, image_data: str, crop: str = "Rice") -> Dict[str, Any]:
         """
-        Stage 1: Lightweight MobileNetV3-Small / EfficientNet-B0 INT8 execution.
-        Takes crop leaf image and maps against verified PlantVillage + PlantDoc taxonomy.
-        Execution latency: ~42ms on ARM Cortex-A76.
+        Stage 1: Offline Agronomic Taxonomy Matcher.
+        Maps selected crop against verified PlantVillage + PlantDoc agronomic disease taxonomy.
         """
         start_t = time.perf_counter()
         norm_crop = crop.title() if crop else "Rice"
         if norm_crop not in CROP_DISEASE_TAXONOMY:
             norm_crop = "Rice"
 
-        # Realistic edge classification based on visual metadata / taxonomy
+        # Deterministic agronomic classification based on taxonomy
         crop_data = CROP_DISEASE_TAXONOMY[norm_crop]
         
         # Primary candidate selection
@@ -187,28 +184,24 @@ class EdgeInferencePipeline:
         selected_key = disease_keys[0] if disease_keys else "Healthy"
 
         profile = crop_data[selected_key]
-        latency_ms = round((time.perf_counter() - start_t) * 1000 + 42.6, 2)
+        latency_ms = round((time.perf_counter() - start_t) * 1000, 2)
 
         return {
-            "stage": "Stage 1: Vision Model (MobileNetV3-Small INT8)",
+            "stage": "Stage 1: Offline Agronomic Taxonomy Matcher (Rule-Based)",
             "crop": norm_crop,
             "disease_key": selected_key,
             "disease_name": profile["common_name"],
             "pathogen": profile["scientific_name"],
-            "confidence": 0.946,
             "severity": profile["severity_threshold"],
             "observed_symptoms": profile["symptoms"],
-            "model_architecture": "MobileNetV3-Small (PTQ INT8 Per-Channel)",
-            "dataset": "PlantVillage + PlantDoc (Combined Benchmark)",
-            "inference_latency_ms": latency_ms,
-            "ram_allocated_mb": 84.5
+            "mode": "Deterministic Taxonomy Lookup",
+            "inference_latency_ms": latency_ms
         }
 
     def execute_stage2_pest_model(self, crop: str) -> Optional[Dict[str, Any]]:
         """
-        Stage 2: Sequential IP102 Insect Pest Model.
-        Only executed if pest indicators or field risk are present.
-        Execution latency: ~38ms on ARM Cortex-A76.
+        Stage 2: Offline Agronomic Pest Association Matcher.
+        Identifies correlated insect vectors from agricultural pest taxonomy.
         """
         start_t = time.perf_counter()
         
@@ -222,20 +215,17 @@ class EdgeInferencePipeline:
         if not matched_pest:
             return None
 
-        latency_ms = round((time.perf_counter() - start_t) * 1000 + 38.2, 2)
+        latency_ms = round((time.perf_counter() - start_t) * 1000, 2)
         pid, pdata = matched_pest
 
         return {
-            "stage": "Stage 2: Pest Classifier (IP102 INT8)",
+            "stage": "Stage 2: Agronomic Pest Association Engine (Rule-Based)",
             "pest_id": pid,
             "pest_name": pdata["name"],
             "economic_threshold": pdata["threshold"],
             "recommended_control": pdata["control"],
-            "confidence": 0.912,
-            "model_architecture": "EfficientNet-Lite0 (PTQ INT8)",
-            "dataset": "IP102 (75,222 images)",
-            "inference_latency_ms": latency_ms,
-            "ram_allocated_mb": 76.2
+            "mode": "Taxonomy Pest Correlation",
+            "inference_latency_ms": latency_ms
         }
 
     def generate_llama_structured_prompt(self, stage1: Dict[str, Any], stage2: Optional[Dict[str, Any]], lang: str = "en") -> str:
@@ -316,17 +306,12 @@ Provide:
             if pest_recom:
                 advice_text += f"\n4. Insect Pest Management: {stage2['recommended_control']}"
 
-        latency_ms = round((time.perf_counter() - start_t) * 1000 + 1420.0, 2)
+        latency_ms = round((time.perf_counter() - start_t) * 1000, 2)
 
         return {
-            "stage": "Stage 3: Advisory Generation (Llama 3.2 1B-Instruct INT4)",
-            "model": "Llama 3.2 1B-Instruct (Q4_K_M GGUF)",
-            "input_tokens_used": 118,
-            "output_tokens_generated": 95,
-            "generation_speed_tok_sec": 67.2,
+            "stage": "Stage 3: Offline Agronomic Advisory Synthesis",
             "advisory_text": advice_text,
             "latency_ms": latency_ms,
-            "ram_allocated_mb": 745.0,
             "chemical_dosage": tank_dosage,
             "organic_alternative": organic,
             "safety_instructions": safety
@@ -335,32 +320,30 @@ Provide:
     def run_full_offline_pipeline(self, image_data: str, crop: str = "Rice", lang: str = "en") -> Dict[str, Any]:
         """
         Executes the entire end-to-end sequential offline workflow:
-          Capture -> MobileNetV3 (INT8) -> IP102 (INT8) -> Memory Clean -> Llama 3.2 1B (INT4)
+          Rule Matching -> Pest Association -> Memory Clean -> Advisory Synthesis
         """
         total_start = time.perf_counter()
 
-        # 1. Vision Model Execution
+        # 1. Vision / Taxonomy Matcher Execution
         stage1 = self.execute_stage1_vision_model(image_data, crop=crop)
 
-        # 2. Sequential Pest Model Execution (if crop has known vectors)
+        # 2. Sequential Pest Association Execution
         stage2 = self.execute_stage2_pest_model(crop=stage1["crop"])
 
-        # 3. Dynamic Memory Garbage Collection to cap peak RAM
+        # 3. Dynamic Memory Garbage Collection
         gc.collect()
 
-        # 4. Structured Llama 3.2 1B Advisory Execution
+        # 4. Advisory Synthesis Execution
         stage3 = self.execute_stage3_llama_advisory(stage1, stage2, lang=lang)
 
-        total_latency = round((time.perf_counter() - total_start) * 1000 + 1500.8, 2)
+        total_latency = round((time.perf_counter() - total_start) * 1000, 2)
 
         return {
             "status": "success",
             "is_offline": True,
-            "runtime_environment": "ARM Edge Target (Offline / Zero Cloud API)",
-            "hardware_target": EDGE_BENCHMARKS["target_hardware"],
+            "runtime_environment": "ARM Edge Target - Offline Rule-Based Agronomic Advisor (Local Heuristic Engine)",
             "total_latency_ms": total_latency,
-            "peak_ram_mb": EDGE_BENCHMARKS["peak_memory_mb"],
-            "power_draw_watts": EDGE_BENCHMARKS["power_consumption_watts"],
+            "projected_hardware_budget": PROJECTED_EDGE_BUDGET,
             "pipeline_stages": {
                 "vision_disease_detection": stage1,
                 "pest_identification": stage2,
@@ -371,14 +354,13 @@ Provide:
                 "disease": stage1["disease_name"],
                 "pathogen": stage1["pathogen"],
                 "severity": stage1["severity"],
-                "confidence": stage1["confidence"],
+                "deterministic_rule_match": True,
                 "pest_warning": stage2["pest_name"] if stage2 else "None",
                 "actionable_advice": stage3["advisory_text"],
                 "chemical_dosage_15L": stage3["chemical_dosage"],
                 "organic_alternative": stage3["organic_alternative"],
                 "safety_guideline": stage3["safety_instructions"]
-            },
-            "benchmarks": EDGE_BENCHMARKS
+            }
         }
 
 

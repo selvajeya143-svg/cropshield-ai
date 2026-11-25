@@ -124,7 +124,7 @@ export const analyzeLeafWithGroq = async (base64Image, lang = 'en', options = {}
           chemicalControls: [{ product_name: finalD.chemical_dosage_15L, dosage: finalD.chemical_dosage_15L }],
           biologicalControls: [{ product_name: finalD.organic_alternative, application: finalD.organic_alternative }],
           isOffline: true,
-          runtime: 'ARM Edge Target (MobileNetV3 + IP102 + Llama 3.2 1B INT4)',
+          runtime: 'Offline Rule-Based Agronomic Advisor (Local Heuristic Engine)',
           latencyMs: edgeData.total_latency_ms
         };
       }
@@ -290,7 +290,7 @@ export const analyzeLeafWithGroq = async (base64Image, lang = 'en', options = {}
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          model: "llama-3.2-11b-vision-preview",
+          model: "qwen/qwen3.8-27b",
           messages: [
             {
               role: "user",

@@ -1,64 +1,35 @@
 {
-  "quantization_date": "November 2026",
-  "target_runtime": "LiteRT / ONNX Runtime Mobile / ExecuTorch (ARM NEON & v8.2-A FP16/DotProd)",
-  "models": [
+  "roadmap_phase": "Phase 2 Edge Deployment Planning",
+  "target_runtime": "LiteRT / ONNX Runtime Mobile / ExecuTorch (ARM NEON & v8.2-A)",
+  "target_hardware": "ARM Cortex-A76 @ 2.4GHz (Raspberry Pi 5 / Android ARMv8-A)",
+  "planned_models": [
     {
       "name": "MobileNetV3-Small (Crop Disease)",
       "dataset": "PlantVillage + PlantDoc (38 classes)",
-      "original_precision": "FP32",
-      "original_size_mb": 11.2,
-      "quantized_precision": "INT8 PTQ (per-channel weights, uint8 activations)",
-      "quantized_size_mb": 2.85,
-      "size_reduction_ratio": "3.93x",
-      "top1_accuracy_fp32": 97.4,
-      "top1_accuracy_int8": 96.8,
-      "accuracy_drop_percent": 0.6,
-      "arm_latency_fp32_ms": 118.4,
-      "arm_latency_int8_ms": 42.6,
-      "speedup_factor": "2.78x"
+      "planned_precision": "INT8 PTQ (per-channel weights, uint8 activations)",
+      "projected_size_mb": 2.85,
+      "projected_latency_target_ms": "< 50 ms"
     },
     {
       "name": "EfficientNet-B0 (Crop Foliage)",
       "dataset": "PlantVillage (Field Augmentation)",
-      "original_precision": "FP32",
-      "original_size_mb": 21.4,
-      "quantized_precision": "INT8 PTQ",
-      "quantized_size_mb": 5.4,
-      "size_reduction_ratio": "3.96x",
-      "top1_accuracy_fp32": 98.1,
-      "top1_accuracy_int8": 97.3,
-      "accuracy_drop_percent": 0.8,
-      "arm_latency_fp32_ms": 184.2,
-      "arm_latency_int8_ms": 58.4,
-      "speedup_factor": "3.15x"
+      "planned_precision": "INT8 PTQ",
+      "projected_size_mb": 5.4,
+      "projected_latency_target_ms": "< 60 ms"
     },
     {
       "name": "IP102 Pest Identification Model",
       "dataset": "IP102 Benchmark (102 classes)",
-      "original_precision": "FP32",
-      "original_size_mb": 14.8,
-      "quantized_precision": "INT8 PTQ",
-      "quantized_size_mb": 3.75,
-      "size_reduction_ratio": "3.95x",
-      "top1_accuracy_fp32": 92.5,
-      "top1_accuracy_int8": 91.2,
-      "accuracy_drop_percent": 1.3,
-      "arm_latency_fp32_ms": 142.0,
-      "arm_latency_int8_ms": 38.2,
-      "speedup_factor": "3.71x"
+      "planned_precision": "INT8 PTQ",
+      "projected_size_mb": 3.75,
+      "projected_latency_target_ms": "< 45 ms"
     },
     {
       "name": "Llama 3.2 1B-Instruct (Advisory Layer)",
-      "dataset": "Agronomic Extension Protocol Fine-tuned",
-      "original_precision": "FP16 (Bfloat16)",
-      "original_size_mb": 2470.0,
-      "quantized_precision": "INT4 (Q4_K_M GGUF / LiteRT)",
-      "quantized_size_mb": 745.0,
-      "size_reduction_ratio": "3.31x",
-      "perplexity_fp16": 6.84,
-      "perplexity_int4": 7.12,
-      "arm_tokens_per_sec": 67.2,
-      "ram_consumption_mb": 745.0
+      "planned_precision": "INT4 (Q4_K_M GGUF / LiteRT)",
+      "projected_size_mb": 745.0,
+      "projected_ram_budget_mb": "< 800 MB",
+      "projected_generation_target": "< 1.5 s"
     }
   ]
 }

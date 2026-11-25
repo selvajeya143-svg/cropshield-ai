@@ -1,108 +1,149 @@
 # Bharat AI-SoC Student Challenge 2026: Final Project Technical Report
-## CropShield AI (Kisan Vigyaan): Autonomous Offline Edge Crop Disease & Pest Diagnosis with Llama 3.2 1B Advisory on ARM-based SoC
+## CropShield AI (Kisan Vigyaan): Precision Agronomy System with Sentinel-2 Earth Observation, Cloud-Edge Multimodal Diagnostics & ARM SoC Deployment Roadmap
 
 **Challenge:** Bharat AI-SoC Student Challenge 2026  
 **Project Title:** CropShield AI (Kisan Vigyaan)  
-**Target Hardware:** ARM Cortex-A76 @ 2.4GHz (Raspberry Pi 5 / Android ARM64-v8a SoC)  
+**Target Hardware Architecture:** ARM Cortex-A76 @ 2.4GHz (Raspberry Pi 5 / Android ARM64-v8a SoC)  
 **Submission Category:** Edge AI & Embedded Systems  
-**Report Date:** November 2026  
+**Report Date:** 25 November 2026  
 **Repository:** [https://github.com/selvajeya143-svg/cropshield-ai](https://github.com/selvajeya143-svg/cropshield-ai)  
 
 ---
 
 ## 1. Executive Summary
 
-Smallholder farmers across rural India face severe crop losses (estimated at 20–35% annually) caused by foliar fungal diseases, bacterial blights, and defoliating insect pests. While cloud-based computer vision and Large Language Models (LLMs) offer high diagnostic precision, **over 68% of agricultural acreage in India lacks consistent cellular internet connectivity**, rendering cloud APIs unusable in the field.
+Smallholder farmers across rural India face severe annual crop yield losses caused by foliar fungal diseases, bacterial blights, and defoliating insect pests. While advanced deep learning models and large language models (LLMs) offer strong diagnostic capabilities, over 68% of agricultural acreage in India experiences intermittent or absent cellular internet connectivity. 
 
-**CropShield AI** addresses this foundational barrier by deploying an **entirely offline, on-device Edge AI diagnostic pipeline** engineered specifically for resource-constrained ARM architectures. The architecture couples:
-1. **Lightweight Computer Vision**: A Post-Training Quantized (PTQ) **MobileNetV3-Small** and **EfficientNet-B0** (INT8 per-channel) for instant (< 50ms) foliar disease classification.
-2. **Sequential Pest Classifier**: An INT8-quantized **IP102** insect pest model executed sequentially.
-3. **Structured Token-Efficient Advisory**: A localized **Llama 3.2 1B-Instruct** model running in 4-bit quantization (Q4_K_M) that accepts compact, structured diagnostic outputs (crop, disease, severity, pathogen) rather than raw image tensors, generating localized chemical and biological dosage recommendations in **< 1.5 seconds**.
+To address this challenge effectively, **CropShield AI** is architected as an end-to-end precision agronomy platform organized into a **Two-Tier System Framework**:
 
-The entire pipeline executes **with zero cloud API calls**, caps peak memory footprint at **1,148 MB** (well within typical 4GB/8GB ARM limits), and consumes an average of **4.8 Watts**.
+1. **Tier 1 — Operational Working Prototype (Live Implementation)**:
+   - **Earth Observation & Satellite Remote Sensing**: Direct integration with the European Space Agency's **Copernicus Data Space Ecosystem (CDSE)** to ingest real Sentinel-2 Level-2A multispectral imagery, calculating calibrated vegetation indices (**NDVI**, **NDMI**, **NDRE**, **EVI**) and delineating geo-referenced crop stress anomalies.
+   - **Cloud-Accelerated Multimodal Diagnosis**: A high-throughput diagnostic engine powered by Groq LPU acceleration (`qwen/qwen3.8-27b` Vision) performing botanical phenotype extraction and iterative disease comparison.
+   - **Multilingual Voice Assistant (Chota Kissan)**: Audio transcription via Groq Whisper and conversational agronomic reasoning in regional languages (English, Hindi, Marathi).
+   - **Comprehensive Agricultural Knowledge Base**: **176 Wiki entries** covering symptoms, biological vectors, chemical dosages (calibrated per 15L knapsack spray tank), and organic alternatives across **27 major Indian crop categories**.
+   - **Deterministic Offline Fallback Advisor**: A zero-dependency local rule-based heuristic engine delivering instantaneous agronomic guidance when internet connectivity is completely lost.
+   - **Farmer Direct Marketplace Simulation**: An interactive workflow prototype with `localStorage` persistence and transaction lifecycle management.
+
+2. **Tier 2 — ARM Edge Hardware Porting Roadmap (Phase 2 Planning)**:
+   - A rigorous hardware resource budgeting specification designed for standalone low-power deployment on **ARM Cortex-A76** (e.g., Raspberry Pi 5 / Android ARMv8-A SoCs).
+   - Establishes concrete hardware budget ceilings: **Peak RAM < 1,200 MB**, **Power Draw < 5.0 Watts**, and **End-to-End Latency < 1.5 seconds**.
+   - Outlines the model porting strategy utilizing Post-Training Quantization (INT8 PTQ for vision backbones and 4-bit INT4 quantization for local language models via `llama.cpp` / LiteRT).
 
 ---
 
-## 2. Methodology
+## 2. Tier 1: Operational Working Prototype
 
-### 2.1 Dataset Provenance & Curation
-To ensure resilience against real-world field conditions (variable sunlight, soil backgrounds, partial occlusion, camera motion blur), three benchmark datasets were integrated:
+### 2.1 Multispectral Farmland Analysis (Copernicus Sentinel-2)
+CropShield AI implements an automated satellite processing pipeline in `backend/services/sentinel_service.py` that connects directly to the Copernicus Data Space Ecosystem:
+- **Authentication**: Obtains OAuth2 Bearer tokens from the Copernicus CDSE identity provider.
+- **Spectral Band Acquisition**: Requests 11 calibrated Level-2A surface reflectance bands:
+  - Optical bands: Blue ($B02$), Green ($B03$), Red ($B04$)
+  - Vegetation Red Edge bands: $B05, B06, B07, B8A$
+  - Near-Infrared (NIR): $B08$
+  - Short-Wave Infrared (SWIR): $B11, B12$
+  - Scene Classification Layer ($SCL$)
+- **Vegetation Index Computation**:
+  - **NDVI (Normalized Difference Vegetation Index)**: Measures overall photosynthetic canopy vigour:
+    $$\text{NDVI} = \frac{B08 - B04}{B08 + B04}$$
+  - **NDMI (Normalized Difference Moisture Index)**: Gauges crop canopy moisture stress:
+    $$\text{NDMI} = \frac{B08 - B11}{B08 + B11}$$
+  - **NDRE (Normalized Difference Red Edge)**: Evaluates early-stage nitrogen and chlorophyll dynamics:
+    $$\text{NDRE} = \frac{B08 - B05}{B08 + B05}$$
+  - **EVI (Enhanced Vegetation Index)**: Mitigates atmospheric and soil background interference:
+    $$\text{EVI} = 2.5 \times \frac{B08 - B04}{B08 + 6 \times B04 - 7.5 \times B02 + 1}$$
+- **Spatial Stress Clustering**: Applies morphological connected-component labeling on the resulting index rasters to isolate contiguous unhealthy farm parcels, calculating centroid coordinates (latitude/longitude), bounding polygons, and estimated affected acreage.
 
-| Dataset | Modality | Samples | Classes | Role in CropShield AI |
-| :--- | :--- | :--- | :--- | :--- |
-| **PlantVillage** | Laboratory RGB leaf imagery | 54,303 images | 38 disease & healthy classes across 14 crops | Baseline morphological disease feature extraction & high-contrast leaf pathology learning. |
-| **PlantDoc** | In-situ agricultural field photography | 2,598 images | 17 crop disease classes | Real-field robustness: complex backgrounds, shadow occlusions, multi-leaf disease clusters, and sunlight glare. |
-| **IP102** | Large-scale insect pest taxonomy | 75,222 images | 102 agricultural insect pest classes | Stage 2 sequential insect identification and economic threshold calculation. |
+### 2.2 Cloud-Accelerated Multimodal Diagnosis (Groq LPU)
+For scenarios where rural field workers or extension officers have network access, CropShield AI leverages Groq LPU inference for low-latency multimodal reasoning:
+- **Vision Pipeline (`qwen/qwen3.8-27b`)**: Analyzes high-resolution leaf photography to extract botanical phenotypes, lesion morphology (chlorotic rings, necrotic borders, water-soaked margins), and visual coloration profiles.
+- **Differential Pathology Comparison**: Ranks candidate diseases identified in the local knowledge base against observed symptoms, generating multi-candidate differential diagnoses with clear biological justification.
+- **Voice Interaction (`Chota Kissan`)**: Integrates cloud-based Groq Whisper for spoken audio transcription, converting regional voice queries into structured agronomic prompts and streaming actionable chemical and biological guidance.
 
-### 2.2 Preprocessing & Data Augmentation Pipeline
-- **Input Resolution**: Standardized to $224 \times 224 \times 3$ for MobileNetV3 and $240 \times 240 \times 3$ for EfficientNet-B0.
-- **Normalization**: Z-score standard normalization using ImageNet priors: $\mu = [0.485, 0.456, 0.406]$, $\sigma = [0.229, 0.224, 0.225]$.
-- **In-Situ Augmentations**:
-  - Random affine rotations ($\pm 30^\circ$) and horizontal/vertical flips.
-  - Color jittering (brightness $\pm 0.25$, contrast $\pm 0.20$, hue $\pm 0.05$) to simulate morning, noon, and overcast illumination.
-  - Cutout and Gaussian blur kernel ($\sigma \in [0.1, 2.0]$) to simulate camera autofocus errors in rural environments.
+### 2.3 Comprehensive Agriculture Wiki (176 Wiki Entries)
+CropShield AI incorporates an extensive, offline-readable markdown knowledge base structured in `wiki/agriculture/`:
+- **176 standalone Wiki entries** spanning 27 crop categories (Rice, Cotton, Tomato, Wheat, Sugarcane, Sorghum, Pearl Millet, Soybean, Groundnut, Vegetables, etc.).
+- Each entry documents:
+  - Pathogen taxonomy (fungal, bacterial, viral, or deficiency).
+  - Characteristic visual symptoms at vegetative, flowering, and maturity stages.
+  - Recommended chemical fungicides/insecticides with exact dosages per standard **15-liter knapsack backpack pump**.
+  - Eco-friendly biological alternatives (e.g., *Trichoderma viride*, *Pseudomonas fluorescens*, Neem Seed Kernel Extract).
+  - Safe application intervals and pre-harvest wait times.
 
-### 2.3 End-to-End Sequential Pipeline Architecture
-Running multiple deep learning models concurrently on an ARM SoC causes extreme contention for CPU cores and memory bandwidth. CropShield AI utilizes a **three-stage sequential orchestration**:
+### 2.4 Offline Rule-Based Agronomic Advisor (Local Heuristic Engine)
+To maintain operational capability when internet connectivity drops entirely:
+- The system includes a zero-dependency Python rule engine (`backend/services/offline_edge_engine.py`) and a client-side JavaScript evaluator (`src/services/visionService.js`).
+- Given a selected crop and environmental inputs, the engine performs deterministic taxonomy traversal to identify primary endemic crop diseases and correlated insect pests (e.g., Whitefly vectors for Cotton Leaf Curl; Plant Hoppers for Rice Blast).
+- Generates structured spray schedules and tank dosage advisories in under **40 milliseconds** on standard CPU hardware with zero cloud calls.
+
+### 2.5 Interactive Marketplace & Automated Test Verification
+- **Farmer Direct Marketplace Simulation**: Built with client-side state persistence (`localStorage`), enabling simulated listings, fair-trade pricing benchmarks, buyer order requests, and transaction lifecycle tracking.
+- **Automated Test Suite**: Tested using pytest (`tests/`), with **30 passing unit tests** validating API route integrity, diagnostic schemas, iterative comparison algorithms, and markdown parser correctness.
+
+---
+
+## 3. Tier 2: ARM Edge Hardware Porting Roadmap (Phase 2 Planning)
+
+While the operational prototype demonstrates full-stack software and cloud-hybrid execution, the next phase of the project focuses on porting deep learning inference directly onto dedicated ARM-based System-on-Chip (SoC) hardware.
+
+### 3.1 Hardware Budget Specifications for ARM Cortex-A76
+For standalone deployment on an embedded board (e.g., Raspberry Pi 5) or low-cost Android ARMv8-A smartphone without cloud connectivity, CropShield AI defines the following **Projected Target Budget Specifications**:
+
+| Hardware Metric | Projected Budget Ceiling | Rationale & Constraints |
+| :--- | :---: | :--- |
+| **Peak Pipeline RAM** | **< 1,200 MB** | Ensures reliable operation on devices with 2GB–4GB total system memory without triggering OS Out-Of-Memory (OOM) killers or disk swapping. |
+| **Power Consumption** | **< 5.0 Watts** | Enables prolonged battery or solar-panel operation in off-grid field setups without requiring active cooling fans. |
+| **Total Pipeline Latency** | **< 1.5 seconds** | Maintains interactive responsiveness for farmers capturing leaf images in the field. |
+| **Target Architecture** | **ARM Cortex-A76 @ 2.4 GHz** | Quad-core 64-bit ARMv8.2-A with 128-bit NEON SIMD vector extensions. |
+
+### 3.2 Planned Multi-Stage Sequential Pipeline Architecture
+To respect the < 1,200 MB memory ceiling, models cannot run concurrently. The proposed edge architecture uses a sequential execution lifecycle:
 
 ```
   ┌─────────────────────────────────────────────────────────────┐
-  │                 CAMERA / SENSOR CAPTURE                     │
-  │        (Mobile Camera or USB UVC / CSI Camera on RPi 5)     │
+  │                 CAMERA SENSOR CAPTURE                       │
+  │            (Mobile Camera or USB/CSI on RPi 5)              │
   └──────────────────────────────┬──────────────────────────────┘
                                  │
                                  ▼
   ┌─────────────────────────────────────────────────────────────┐
-  │  STAGE 1: Vision Disease Classifier (MobileNetV3-Small)     │
-  │  • Model Size: 2.85 MB (INT8 PTQ)                           │
-  │  • Latency: 42.6 ms | RAM: 84.5 MB                          │
-  │  • Target: PlantVillage + PlantDoc (Top-1 Acc: 96.8%)       │
+  │  STAGE 1: Vision Disease Classifier (Target: MobileNetV3)   │
+  │  • Precision Target: INT8 PTQ (Per-Channel)                 │
+  │  • Target Size: ~2.85 MB | Target Latency: < 50 ms          │
+  │  • Memory Target: < 100 MB RAM                              │
   └──────────────────────────────┬──────────────────────────────┘
                                  │
-                                 ▼ (Free Stage 1 Vision Memory)
+                                 ▼ (Free Stage 1 Vision Tensors)
   ┌─────────────────────────────────────────────────────────────┐
-  │  STAGE 2: Sequential Pest Identifier (IP102 Classifier)     │
-  │  • Model Size: 3.75 MB (INT8 PTQ)                           │
-  │  • Latency: 38.2 ms | RAM: 76.2 MB                          │
-  │  • Target: 102 Agricultural Pest Taxonomies                 │
+  │  STAGE 2: Sequential Pest Classifier (Target: IP102 Model)  │
+  │  • Precision Target: INT8 PTQ                               │
+  │  • Target Size: ~3.75 MB | Target Latency: < 45 ms          │
+  │  • Memory Target: < 80 MB RAM                               │
   └──────────────────────────────┬──────────────────────────────┘
                                  │
-                                 ▼ (Garbage Collect / Memory Flush)
+                                 ▼ (Explicit Garbage Collection: gc.collect())
   ┌─────────────────────────────────────────────────────────────┐
-  │  STRUCTURED INTERMEDIATE HANDOFF (118 tokens)               │
-  │  {"crop": "Rice", "disease": "Brown Spot", "severity": ...} │
+  │  STRUCTURED SYMBOLIC HANDOFF (~118 Tokens)                  │
+  │  {"crop": "Rice", "disease": "Brown Spot", "pest": ...}     │
   └──────────────────────────────┬──────────────────────────────┘
                                  │
                                  ▼
   ┌─────────────────────────────────────────────────────────────┐
-  │  STAGE 3: Offline Agronomic Advisory (Llama 3.2 1B INT4)    │
-  │  • Quantization: Q4_K_M GGUF / LiteRT                       │
-  │  • RAM Footprint: 745 MB | Latency: 1.42s                   │
-  │  • Speed: 67.2 tokens/sec | Output: Multilingual Dosage     │
+  │  STAGE 3: Structured Advisory LLM (Target: Llama 3.2 1B)    │
+  │  • Precision Target: INT4 (Q4_K_M GGUF via llama.cpp)       │
+  │  • Target Size: ~745 MB | Target Memory: < 800 MB RAM       │
+  │  • Target Output: Concise Tank Dosages (< 1.5s generation)  │
   └─────────────────────────────────────────────────────────────┘
 ```
 
----
+### 3.3 Planned Optimization Techniques
 
-## 3. Optimization Techniques
+#### 1. Token-Efficient Symbolic Handoff Strategy
+Directly executing edge multimodal vision-language models (e.g., LLaVA or Qwen-VL) on embedded ARM CPUs introduces severe bottlenecks: visual patch encoders generate 576 to 1,024 image tokens per capture, resulting in multi-second prompt evaluation times and large KV-cache allocations.
 
-### 3.1 Post-Training Quantization (PTQ) Methodology
-- **Vision Models**: Converted from FP32 to INT8 using symmetric per-channel weight quantization and asymmetric uint8 activation quantization calibrated on a representative 500-image agricultural calibration dataset.
-- **Formulation**:
-  $$q = \text{round}\left(\frac{x}{S}\right) + Z$$
-  where $S$ is the scale factor and $Z$ is the zero-point integer offset.
-- **LLM Advisory Layer**: Quantized Llama 3.2 1B from FP16 (2.47 GB) to INT4 $Q4\_K\_M$ GGUF (745 MB) utilizing medium block-size matrix decomposition. This preserves perplexity within $0.28$ points of the unquantized model while reducing memory footprint by **70%**.
-
-### 3.2 Token-Efficient Structured Advisory Strategy
-Directly feeding raw images into edge multimodal models (e.g., LLaVA or Qwen-VL) on ARM devices creates severe latency penalties:
-1. Visual patch encoders generate **576 to 1,024 image tokens** per frame.
-2. Processing 1,024 prompt tokens on an ARM Cortex-A76 requires over 14 seconds of Time-To-First-Token (TTFT) and consumes $> 2.8\text{ GB}$ of KV-cache memory.
-
-**CropShield AI Solution**:
-Instead of raw image passing, CropShield AI uses a **two-tier symbolic handoff**:
-1. The specialized INT8 vision model reduces a $224 \times 224 \times 3$ image (150,528 dimensions) down to a verified symbolic classification tuple:
-   $$\mathcal{T} = (\text{Crop}, \text{Pathogen}, \text{Severity}, \text{SymptomSet}, \text{PestVector})$$
-2. The structured JSON is formatted into a tight 118-token prompt:
+Instead, the planned architecture uses a **symbolic handoff**:
+1. The lightweight INT8 vision model reduces a $224 \times 224 \times 3$ image into a discrete classification tuple:
+   $$\mathcal{T} = (\text{Crop}, \text{Detected Disease}, \text{Severity}, \text{Observed Symptoms}, \text{Pest Vector})$$
+2. The classification tuple is injected into a compact, pre-structured 118-token prompt:
 ```text
 <|begin_of_text|><|start_header_id|>system<|end_header_id|>
 You are an offline edge agronomist running on ARM hardware.
@@ -112,7 +153,7 @@ Keep recommendations concise (under 120 words). Do not hallucinate.<|eot_id|>
 [DIAGNOSTIC DATA]
 Crop: Rice
 Detected Disease: Rice Brown Spot (Bipolaris oryzae)
-Severity: Moderate (Confidence: 94%)
+Severity: Moderate
 Symptoms: Oval circular lesions with dark brown centers, Yellow chlorotic halos
 Pest: Brown Plant Hopper (Threshold: 5-10 insects/hill)
 Language Requested: English
@@ -122,73 +163,81 @@ Provide:
 2. Eco-Friendly / Biological Alternative
 3. Safe Handling Precaution<|eot_id|>
 ```
-- **Outcome**: Token consumption drops from **1,142 tokens down to 118 tokens (89.7% reduction)**. Time-To-First-Token decreases from 14.2s to **0.28s**, and generation finishes in **1.42s** at 67.2 tokens/second.
+This strategy reduces token consumption from over 1,000 multimodal tokens to approximately 118 text tokens, drastically reducing Time-To-First-Token and memory allocation.
 
-### 3.3 Dynamic Memory Management & Garbage Collection
-Executing vision and generative models simultaneously requires $> 3.2\text{ GB}$ of RAM, triggering Linux `kswapd0` memory paging or Android Low Memory Killer (LMK). CropShield AI introduces **sequential lifecycle boundaries**:
-1. Stage 1 loads MobileNetV3-Small INT8, generates output logits in 42.6 ms, and releases model handles.
-2. An explicit garbage collection (`gc.collect()` / buffer release) purges image tensors.
-3. Stage 2 executes IP102 in 38.2 ms and releases pest tensors.
-4. Stage 3 loads the quantized Llama 3.2 1B weight table and executes decoding.
-- **Result**: Peak RAM remains capped at **1,148 MB**, ensuring stable 24/7 background operation even on 2GB and 4GB ARM devices.
+#### 2. Post-Training Quantization (PTQ) Schema
+- **Vision Models (MobileNetV3-Small / EfficientNet-B0)**: Target conversion to INT8 per-channel weights and uint8 activations using standard symmetric quantization:
+  $$q = \text{round}\left(\frac{x}{S}\right) + Z$$
+- **Language Advisory Model (Llama 3.2 1B-Instruct)**: Target quantization using 4-bit medium block-size matrix decomposition ($Q4\_K\_M$) to compress the weight table from ~2.47 GB down to approximately 745 MB, allowing it to fit comfortably within the projected 1,200 MB RAM budget.
 
 ---
 
-## 4. Hardware Utilization
+## 4. Hardware Utilization & Porting Specifications
 
-All benchmarks were gathered on production **ARM Cortex-A76 @ 2.4GHz** (Raspberry Pi 5 with 4GB LPDDR4X RAM running 64-bit OS and Android 14 ARMv8-A platform).
+The hardware deployment plan targets 64-bit ARM architectures prevalent in modern single-board computers and mobile chipsets:
 
-### 4.1 System-on-Chip (SoC) Architectural Profile
-
-| Hardware Parameter | Raspberry Pi 5 Target | Android Smartphone Target |
+| Hardware Parameter | Raspberry Pi 5 Deployment Target | Android Mobile SoC Target |
 | :--- | :--- | :--- |
-| **SoC Model** | Broadcom BCM2712 (16nm FinFET) | Qualcomm Snapdragon 7 / MediaTek Dimensity |
-| **CPU Architecture** | Quad-core ARM Cortex-A76 @ 2.4 GHz | Octa-core ARMv8.2-A / ARMv9 (Cortex-A78/A55) |
-| **SIMD Extensions** | ARM NEON 128-bit SIMD Vector Engine | ARM NEON + DotProd (8-bit matrix dot product) |
-| **Total Memory** | 4GB LPDDR4X-4267 SDRAM | 6GB / 8GB LPDDR5 |
-| **Peak Pipeline RAM Used** | **1,148 MB** (28.7% of total memory) | **1,148 MB** (19.1% of total memory) |
-| **Power Consumption** | **4.8 Watts** under active multi-model inference | **3.6 Watts** under active inference |
-| **Thermal Profile** | Idle: 46°C | Peak Inference: 52°C ($\Delta T < 6^\circ\text{C}$) | Idle: 34°C | Peak Inference: 38°C ($\Delta T < 4^\circ\text{C}$) |
+| **System-on-Chip (SoC)** | Broadcom BCM2712 (16nm FinFET) | Qualcomm Snapdragon / MediaTek Dimensity |
+| **CPU Configuration** | Quad-core ARM Cortex-A76 @ 2.4 GHz | Octa-core ARMv8.2-A / ARMv9 (Cortex-A78/A55) |
+| **SIMD Extensions** | ARM NEON 128-bit SIMD | ARM NEON + DotProd (8-bit matrix dot product) |
+| **Operating System** | Raspberry Pi OS 64-bit (Debian Bookworm) | Android 14 (Linux Kernel 5.15+ / 6.1+) |
+| **Target Runtime Engines** | `llama.cpp` (C++) / ONNX Runtime Mobile | LiteRT (TFLite) / ExecuTorch |
+| **Projected Peak RAM Budget** | **< 1,200 MB** (Well within 4GB capacity) | **< 1,200 MB** (Well within 6GB–8GB capacity) |
+| **Projected Power Envelope** | **< 5.0 Watts** (Passive heat spreader) | **< 4.0 Watts** (Battery operation) |
 
 ---
 
-## 5. Results and Performance
+## 5. Software Architecture & Verification Summary
 
-### 5.1 Model Performance Benchmarking Matrix
+### 5.1 Repository Structure
+```
+cropshield-ai/
+├── backend/
+│   ├── main.py                  # FastAPI server with 21 REST endpoints
+│   ├── config.py                # Environment and model configurations
+│   ├── schemas.py               # Pydantic data validation schemas
+│   └── services/
+│       ├── sentinel_service.py  # Copernicus Sentinel-2 multispectral pipeline
+│       ├── diagnostic_service.py# Multimodal diagnostic and comparison engine
+│       ├── offline_edge_engine.py# Deterministic offline rule-based advisor
+│       └── wiki_service.py      # Markdown agronomic knowledge parser
+├── scripts/
+│   ├── benchmark_arm_edge.py    # Local heuristic benchmark and budget profiler
+│   ├── quantize_models.py       # PTQ target specification generator
+│   ├── generate_pdf_report.py   # Automated PDF report generator
+│   └── generate_docx_report.py  # Automated Word document report generator
+├── src/                         # React + Vite full-stack frontend application
+├── wiki/agriculture/            # 176 agronomic markdown knowledge profiles
+├── sentinel2_analysis/          # Sample Sentinel-2 GeoTIFF, NPZ, and analysis maps
+└── tests/                       # 30 automated unit tests (all passing)
+```
 
-| Metric | MobileNetV3-Small (FP32) | MobileNetV3-Small (INT8 PTQ) | EfficientNet-B0 (INT8 PTQ) | IP102 Pest Model (INT8 PTQ) | Llama 3.2 1B (FP16) | Llama 3.2 1B (INT4 Q4_K_M) | Full Sequential Pipeline (Total) |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Disk Storage / Size** | 11.2 MB | **2.85 MB** | 5.40 MB | 3.75 MB | 2,470 MB | **745.0 MB** | **751.6 MB** |
-| **Inference Latency** | 118.4 ms | **42.6 ms** | 58.4 ms | **38.2 ms** | 4,850 ms | **1,420 ms** | **1,500.8 ms (~1.5s)** |
-| **Peak RAM Allocation** | 240 MB | **84.5 MB** | 112 MB | **76.2 MB** | 2,850 MB | **745.0 MB** | **1,148 MB** (Capped) |
-| **Power Consumption** | 6.2 W | **3.8 W** | 4.2 W | **3.9 W** | 7.4 W | **4.8 W** | **4.8 Watts (Mean)** |
-| **Top-1 / Output Acc.** | 97.4% | **96.8%** | 97.3% | **91.2%** | Perplexity 6.84 | **Perplexity 7.12** | **96.8% Agreement** |
-| **Speedup Ratio** | Baseline | **2.78x** | 2.15x | **3.71x** | Baseline | **3.42x** | **3.23x overall** |
-
-### 5.2 Verification of Zero-Cloud Offline Inference
-- When tested with active network interface disabled (`sudo ifconfig eth0 down && sudo ifconfig wlan0 down` on Raspberry Pi 5, or Airplane Mode enabled on Android):
-  - **HTTP Calls**: 0 outbound cloud calls.
-  - **Vision Latency**: 42.6 ms.
-  - **Advisory Latency**: 1.42 seconds.
-  - **Diagnosis Outcome**: 100% deterministic diagnostic parity with ground-truth agricultural validation dossiers.
+### 5.2 Automated Test Coverage
+The automated test suite verifies core backend functionality across 30 unit tests:
+- `tests/test_api.py`: Validates health checks, endpoint responses, and request schema compliance.
+- `tests/test_diagnostic_service.py`: Validates phenotype extraction, optical fallback logic, and confidence scoring.
+- `tests/test_iterative_comparison.py`: Verifies candidate ranking algorithms and differential symptom matching.
+- `tests/test_wiki_parser.py` & `tests/test_wiki_service.py`: Verifies markdown extraction, taxonomy resolution, and spray tank dosage parsing across all 176 Wiki entries.
 
 ---
 
-## 6. Model Limitations & Engineering Tradeoffs
+## 6. Engineering Tradeoffs & Planned Milestones
 
-| Constraint | Tradeoff Made | Mitigating Engineering Mechanism |
+| Engineering Area | Current Prototype State | Planned Edge Milestone (Phase 2) |
 | :--- | :--- | :--- |
-| **Extreme Low-Light / Muddy Foliage** | INT8 quantization slightly reduces sensitivity to subtle chlorotic margins (-0.6% top-1 accuracy). | Dual-threshold confidence gating ($> 0.85$ triggers direct treatment; $0.60–0.85$ displays advisory caution with candidate ranking). |
-| **Multiple Co-Occurring Infections** | Single-label MobileNetV3 heads cannot simultaneously flag 3+ distinct fungal pathogens on one leaflet. | Sequential IP102 invocation decouples insect defoliation from fungal blight, providing dual-layered diagnosis. |
-| **Llama 3.2 1B Context Window** | 1B parameter models have less extensive agronomic world-knowledge compared to 70B models. | Prompt anchoring enforces strict grounding in verified Krishi Vigyan Kendra (KVK) and ICAR spray dilution tables. |
-| **Thermal Envelope** | Sustained multi-core execution on Raspberry Pi 5 can raise SoC temperatures above 70°C without active cooling. | Execution duty-cycle is limited to single-shot inference (~1.5s total duration), generating $< 0.4^\circ\text{C}$ temperature rise per diagnosis. |
+| **Satellite Analysis** | Operational with live Copernicus CDSE API authentication and synthetic spectral fallback. | Integration of temporal NDVI differencing to track multi-week recovery trends post-treatment. |
+| **Diagnostic Reasoning** | Operational via cloud Groq LPU (`qwen/qwen3.8-27b`) for high-precision differential diagnosis. | Export of fine-tuned MobileNetV3 to ONNX/LiteRT INT8 for on-device visual disease classification. |
+| **Voice Assistant** | Operational via Groq Whisper and cloud Qwen conversational reasoning. | Migration to on-device Whisper.cpp (tiny/base model) for fully offline voice transcription. |
+| **Offline Advisory** | Operational zero-dependency rule-based agronomic heuristic engine. | Deployment of quantized Llama 3.2 1B INT4 GGUF via `llama.cpp` using token-efficient structured prompts. |
+| **Marketplace** | Functional interactive field simulation with `localStorage` persistence. | Integration with Open Network for Digital Commerce (ONDC) agricultural protocols. |
 
 ---
 
 ## 7. Submission Checklist & Verification
 
-- [x] **Public Code Repository**: Hosted on GitHub at [https://github.com/selvajeya143-svg/cropshield-ai](https://github.com/selvajeya143-svg/cropshield-ai).
-- [x] **Working Application**: Offline APK for Android smartphones (via Capacitor / PWA) and ARM64 system service for Raspberry Pi 5.
-- [x] **Demo Video (2 Minutes)**: 1080p 16:9 MP4 video demonstrating the end-to-end workflow in Airplane Mode.
-- [x] **Final Project Report**: Formatted as `.pdf` and `.docx`, comprehensively covering Methodology, Results and Performance, Hardware Utilization, and Optimization Techniques.
-- [x] **Official Submission Form Link**: [https://forms.gle/3KyscquPFG8rS9ASA](https://forms.gle/3KyscquPFG8rS9ASA).
+- [x] **Public Code Repository**: Hosted on GitHub at [https://github.com/selvajeya143-svg/cropshield-ai](https://github.com/selvajeya143-svg/cropshield-ai) under the MIT License.
+- [x] **Working Prototype Application**: Production web application (`http://localhost:5173`) and FastAPI backend (`http://localhost:8000`) supporting Copernicus satellite analytics, Groq multimodal reasoning, 176 Wiki entries, and offline rule-based fallback.
+- [x] **Demo Video (2 Minutes)**: 1080p 16:9 MP4 presentation demonstrating real Sentinel-2 satellite analysis, Chota Kissan voice assistant, specimen diagnosis, and the offline agronomic advisor.
+- [x] **Final Technical Report**: Available in `.pdf` and `.docx` formats, covering methodology, working prototype implementation, hardware target budgeting, and the Phase 2 ARM SoC roadmap.
+- [x] **Official Submission Form Link**: [https://forms.gle/3KyscquPFG8rS9ASA](https://forms.gle/3KyscquPFG8rS9ASA) (Deadline: 25 November 2026, 11:59 PM IST).

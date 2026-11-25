@@ -61,7 +61,7 @@ VISION_PROVIDER = (os.getenv("VISION_PROVIDER") or "groq").strip().lower()
 
 # Groq & AI Model Configuration (Primary Provider)
 GROQ_BASE_URL = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1").rstrip("/")
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.2-11b-vision-preview")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
 GROQ_API_KEY = get_groq_api_key()
 GROQ_API_URL = f"{GROQ_BASE_URL}/chat/completions"
 
@@ -77,8 +77,8 @@ if VISION_PROVIDER == "alibaba" and not ALIBABA_API_KEY and GROQ_API_KEY:
 
 # Model Selection defaults (Primary default: Groq)
 DEFAULT_MODEL = GROQ_MODEL if VISION_PROVIDER == "groq" else (ALIBABA_MODEL if VISION_PROVIDER == "alibaba" else GROQ_MODEL)
-VISION_MODEL = os.getenv("VISION_MODEL", "llama-3.2-11b-vision-preview" if VISION_PROVIDER == "groq" else DEFAULT_MODEL)
-REASONING_MODEL = os.getenv("REASONING_MODEL", "llama-3.3-70b-versatile" if VISION_PROVIDER == "groq" else DEFAULT_MODEL)
+VISION_MODEL = os.getenv("VISION_MODEL", DEFAULT_MODEL)
+REASONING_MODEL = os.getenv("REASONING_MODEL", DEFAULT_MODEL)
 
 # Google Gemini Configuration
 GEMINI_API_KEY = get_gemini_api_key()
