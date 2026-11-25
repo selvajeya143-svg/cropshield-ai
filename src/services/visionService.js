@@ -290,7 +290,7 @@ export const analyzeLeafWithGroq = async (base64Image, lang = 'en', options = {}
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          model: "qwen/qwen3.8-27b",
+          model: "llama-3.2-11b-vision-preview",
           messages: [
             {
               role: "user",

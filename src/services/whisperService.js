@@ -413,7 +413,7 @@ export async function translateWithLLM(text, targetLang, apiKey) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'qwen/qwen3.8-27b',
+        model: 'llama-3.3-70b-versatile',
         messages: [
           {
             role: 'system',

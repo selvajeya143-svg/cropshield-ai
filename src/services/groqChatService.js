@@ -7,8 +7,8 @@
 import { generateChotaKissanResponse, classifyAgriculturalIntent, SUPPORTED_LANGUAGES, detectSpokenLanguage } from './chotaKissanEngine';
 
 const GROQ_CHAT_URL = 'https://api.groq.com/openai/v1/chat/completions';
-export const PRIMARY_GROQ_MODEL = 'openai/gpt-oss-120b';
-export const FALLBACK_GROQ_MODEL = 'openai/gpt-oss-20b';
+export const PRIMARY_GROQ_MODEL = 'llama-3.3-70b-versatile';
+export const FALLBACK_GROQ_MODEL = 'llama-3.1-8b-instant';
 
 /**
  * Retrieve the active Groq API Key
