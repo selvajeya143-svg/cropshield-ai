@@ -520,7 +520,13 @@ export const WebFarmerScanner = ({ onNavigate }) => {
 
 
     const predefinedOption = option || sampleLeafOptions.find(s => s.image === rawTarget);
-    const targetCrop = selectedCrop || predefinedOption?.cropKey || (predefinedOption?.crop ? predefinedOption.crop.split(' ')[0] : 'Cotton');
+    let targetCrop = selectedCrop || 'Rice';
+    if (predefinedOption) {
+      if (predefinedOption.id === 'cotton_blight') targetCrop = 'Cotton';
+      else if (predefinedOption.id === 'tomato_early_blight') targetCrop = 'Tomato';
+      else if (predefinedOption.id === 'rice_healthy') targetCrop = 'Rice';
+      else if (predefinedOption.crop) targetCrop = predefinedOption.crop.split(' ')[0];
+    }
 
     // Call KISAN VIGYAAN Vision Model (Groq Qwen3.8-27B / Backend Pathometry)
     try {
@@ -922,6 +928,39 @@ export const WebFarmerScanner = ({ onNavigate }) => {
 
                     </div>
                   )}
+                </div>
+
+                {/* Instant Test Sample Specimens */}
+                <div className="flex flex-wrap items-center justify-center gap-2 pt-1 w-full max-w-md">
+                  <span className="text-[10px] font-mono text-slate-400 font-bold uppercase w-full text-center">
+                    {lang === 'ta' ? 'மாதிரி இலைகள் (1-Click Quick Test):' : lang === 'mr' ? 'चाचणी नमुने (1-Click Test):' : 'Quick Test Specimens (1-Click):'}
+                  </span>
+                  {sampleLeafOptions.map((sample) => {
+                    const isSelected = selectedImagePreview === sample.image;
+                    return (
+                      <button
+                        key={sample.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedImagePreview(sample.image);
+                          if (sample.id === 'cotton_blight') setSelectedCrop('Cotton');
+                          else if (sample.id === 'tomato_early_blight') setSelectedCrop('Tomato');
+                          else if (sample.id === 'rice_healthy') setSelectedCrop('Rice');
+                          handleTriggerScan(sample, sample.image);
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-[11px] font-bold border transition-all flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                          isSelected
+                            ? 'bg-emerald-600 text-white border-emerald-400 shadow-md ring-2 ring-emerald-400/40'
+                            : isDark
+                            ? 'bg-slate-800/90 text-slate-300 border-slate-700 hover:border-slate-500'
+                            : 'bg-slate-100 text-slate-700 border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                        <span>{sample.crop.split(' ')[0]}: {sample.verdict.split(' ')[0]}</span>
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* Primary Actions */}

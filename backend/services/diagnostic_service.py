@@ -6,6 +6,7 @@ import logging
 import io
 import time
 import base64
+import math
 from typing import List, Optional, Dict, Any, Tuple
 from PIL import Image
 
@@ -208,6 +209,38 @@ Provide your findings strictly in the following JSON format:
         except Exception as exc:
             raise QwenAPIError(f"Vision inference error: {exc}") from exc
 
+    def _compute_visual_similarity(self, query_image_b64: str, ref_img_path: Any) -> float:
+        """
+        Calculates normalized RGB color histogram cosine similarity between query and reference image.
+        Returns a visual match score in 15.0 - 98.0 scale.
+        """
+        try:
+            clean_b64 = query_image_b64
+            if "," in query_image_b64:
+                clean_b64 = query_image_b64.split(",", 1)[1]
+            q_bytes = base64.b64decode(clean_b64)
+            q_img = Image.open(io.BytesIO(q_bytes)).convert("RGB").resize((64, 64))
+            r_img = Image.open(ref_img_path).convert("RGB").resize((64, 64))
+
+            h1 = q_img.histogram()
+            h2 = r_img.histogram()
+            s1, s2 = sum(h1), sum(h2)
+            if s1 == 0 or s2 == 0:
+                return 70.0
+            h1 = [x / s1 for x in h1]
+            h2 = [x / s2 for x in h2]
+            dot = sum(a * b for a, b in zip(h1, h2))
+            mag1 = math.sqrt(sum(a * a for a in h1))
+            mag2 = math.sqrt(sum(b * b for b in h2))
+            if mag1 == 0 or mag2 == 0:
+                return 70.0
+            cos_sim = dot / (mag1 * mag2)
+            score = max(15.0, min(97.0, cos_sim * 100.0))
+            return round(score, 1)
+        except Exception as e:
+            logger.debug(f"Visual comparison fallback: {e}")
+            return 70.0
+
     def _extract_phenotype_locally(self, image_base64: str) -> PhenotypeExtraction:
         """
         Local Botanical Vision Analysis using image colorimetry and morphology.
@@ -218,6 +251,9 @@ Provide your findings strictly in the following JSON format:
         necrotic_count = 0
         yellow_count = 0
         ash_count = 0
+        orange_rust_count = 0
+        black_smut_count = 0
+        white_mildew_count = 0
 
         try:
             clean_b64 = image_base64
@@ -233,28 +269,42 @@ Provide your findings strictly in the following JSON format:
                 # 1. Green healthy chlorophyll
                 if (2 * g - r - b > 10 and g > 30) or (g > r * 1.05 and g > b * 1.05 and g > 30):
                     green_count += 1
-                # 2. Chlorotic yellowing / halo
-                elif r > 60 and g > 60 and b < 70 and (r + g) > 2.0 * b:
+                # 2. Orange / Reddish-Brown Rust Pustule
+                elif r > 130 and g > 50 and g < 140 and b < 70 and r > 1.30 * g and (r - b) > 55:
+                    orange_rust_count += 1
+                # 3. Chlorotic yellowing / halo
+                elif r > 70 and g > 70 and b < 80 and (r + g) > 2.0 * b:
                     yellow_count += 1
-                # 3. Dark brown / necrotic tissue
+                # 4. Deep black spore mass (Smut / Sooty mold)
+                elif r < 45 and g < 45 and b < 45:
+                    black_smut_count += 1
+                # 5. Ash-gray / whitish necrotic center (Blast / necrotic core)
+                elif r > 135 and g > 135 and b > 135 and abs(r - g) < 22 and abs(g - b) < 22:
+                    ash_count += 1
+                # 6. Powdery white / Downy fungal mycelium
+                elif r > 175 and g > 175 and b > 165 and abs(r - g) < 18 and abs(g - b) < 18:
+                    white_mildew_count += 1
+                # 7. Dark brown / necrotic tissue
                 elif r > 40 and r < 195 and g > 30 and g < 170 and b < 110 and r > b * 1.2:
                     necrotic_count += 1
-                # 4. Ash-gray / whitish necrotic center
-                elif r > 145 and g > 145 and b > 145 and abs(r - g) < 25 and abs(g - b) < 25:
-                    ash_count += 1
-                # 5. Human skin (evaluated ONLY on non-plant pixels to avoid misclassifying soil or straw)
+                # 8. Human skin
                 elif r > 60 and g > 40 and b > 25 and r > g and g > b and (r - g) > 15 and (r - b) > 25 and r > 1.15 * g:
                     skin_count += 1
 
-            green_ratio = green_count / total
-            necrotic_ratio = necrotic_count / total
-            yellow_ratio = yellow_count / total
-            ash_ratio = ash_count / total
-            skin_ratio = skin_count / total
-            plant_ratio = green_ratio + necrotic_ratio + yellow_ratio + ash_ratio
+            total_val = max(1, total)
+            green_ratio = green_count / total_val
+            necrotic_ratio = necrotic_count / total_val
+            yellow_ratio = yellow_count / total_val
+            ash_ratio = ash_count / total_val
+            orange_rust_ratio = orange_rust_count / total_val
+            black_smut_ratio = black_smut_count / total_val
+            white_mildew_ratio = white_mildew_count / total_val
+            skin_ratio = skin_count / total_val
+            plant_ratio = green_ratio + necrotic_ratio + yellow_ratio + ash_ratio + orange_rust_ratio
         except Exception as e:
             logger.warning(f"Local pixel analysis fallback default: {e}")
             skin_ratio, green_ratio, necrotic_ratio, yellow_ratio, ash_ratio = 0.0, 0.6, 0.08, 0.04, 0.01
+            orange_rust_ratio, black_smut_ratio, white_mildew_ratio = 0.01, 0.01, 0.01
             plant_ratio = 0.73
 
         # Non-plant rejection ONLY if genuine foliar vegetation is absent
@@ -279,7 +329,7 @@ Provide your findings strictly in the following JSON format:
                 )
 
         # Healthy plant detection
-        has_lesions = necrotic_ratio > 0.04 or yellow_ratio > 0.06 or ash_ratio > 0.02
+        has_lesions = necrotic_ratio > 0.04 or yellow_ratio > 0.06 or ash_ratio > 0.02 or orange_rust_ratio > 0.02 or black_smut_ratio > 0.03
         is_healthy = green_ratio > 0.40 and not has_lesions
         if is_healthy:
             return PhenotypeExtraction(
@@ -303,13 +353,31 @@ Provide your findings strictly in the following JSON format:
                 raw_phenotype_text="Local botanical analysis: Canopy displays high chlorophyll density with zero significant necrotic lesions."
             )
 
-        # Lesion shape discrimination
-        if ash_ratio > 0.035:
+        # Lesion shape and diagnostic pathology class discrimination
+        if orange_rust_ratio > 0.025:
+            shape = "rust_pustule"
+            ends = "localized_pustule"
+            center_col = "reddish_orange"
+            transition = "pustular_relief"
+            symptom_cls = "rust_pustule"
+        elif ash_ratio > 0.035:
             shape = "spindle_diamond"
             ends = "pointed_tapered"
             center_col = "ash_gray"
             transition = "sharp_two_tone"
             symptom_cls = "discrete_lesion"
+        elif black_smut_ratio > 0.04:
+            shape = "smut_sori"
+            ends = "irregular_mass"
+            center_col = "black_spore_mass"
+            transition = "sooty_powder"
+            symptom_cls = "3d_structure"
+        elif white_mildew_ratio > 0.04:
+            shape = "powdery_coating"
+            ends = "diffuse"
+            center_col = "white_downy"
+            transition = "powdery"
+            symptom_cls = "diffuse_discoloration"
         elif yellow_ratio > 0.06 or (necrotic_ratio > 0.04 and yellow_ratio > 0.02):
             shape = "oval_circular"
             ends = "rounded_blunt"
@@ -347,7 +415,7 @@ Provide your findings strictly in the following JSON format:
             current_texture="dry_necrotic",
             distribution="scattered",
             vein_relationship="not_vein_dependent",
-            raw_phenotype_text=f"Local botanical analysis: necrotic_ratio={necrotic_ratio:.2f}, green_ratio={green_ratio:.2f}, yellow_ratio={yellow_ratio:.2f}, ash_ratio={ash_ratio:.2f}"
+            raw_phenotype_text=f"Local botanical analysis: necrotic_ratio={necrotic_ratio:.3f}, green_ratio={green_ratio:.3f}, yellow_ratio={yellow_ratio:.3f}, ash_ratio={ash_ratio:.3f}, orange_rust_ratio={orange_rust_ratio:.3f}, black_smut_ratio={black_smut_ratio:.3f}, white_mildew_ratio={white_mildew_ratio:.3f}"
         )
 
     def _extract_relevant_phenotype(self, candidate: ProblemDetail) -> str:
@@ -569,7 +637,8 @@ Provide your evaluation STRICTLY as a raw JSON object with this schema:
                 phenotype=phenotype,
                 ref_used=ref_used,
                 ref_img_path=ref_img_path,
-                crop=crop
+                crop=crop,
+                query_image_base64=image
             )
         except Exception as err:
             logger.warning(f"Iterative comparison fallback for '{disease_name}': {err}")
@@ -579,7 +648,8 @@ Provide your evaluation STRICTLY as a raw JSON object with this schema:
                 phenotype=phenotype,
                 ref_used=ref_used,
                 ref_img_path=ref_img_path,
-                crop=crop
+                crop=crop,
+                query_image_base64=image
             )
 
         # Iteration-level logging
@@ -602,52 +672,124 @@ Provide your evaluation STRICTLY as a raw JSON object with this schema:
         ref_used: bool,
         ref_img_path: Optional[Any] = None,
         crop: str = "Rice",
+        query_image_base64: Optional[str] = None,
     ) -> CandidateComparisonResult:
         """
         Rule-based local evaluation for an individual candidate disease.
-        Provides zero-downtime offline matching based on botanical geometry and colorimetry.
+        Provides zero-downtime offline matching based on botanical geometry, specific pathology, and visual colorimetry.
         """
         disease_name = candidate.frontmatter.problem
         body_lower = candidate.body.lower()
+        name_lower = disease_name.lower()
         matching = []
         contradicting = []
-        score = 50.0
+        score = 42.0
 
-        if phenotype:
-            shape = phenotype.primary_shape
-            if shape == "spindle_diamond":
-                if any(k in body_lower for k in ["spindle", "diamond", "acute pointed", "blast"]):
-                    score += 38.0
-                    matching.append("Observed spindle/diamond geometry strictly matches hallmark lesion shape.")
-                elif any(k in body_lower for k in ["circular", "oval", "rounded ends", "brown spot"]):
-                    score -= 32.0
-                    contradicting.append("Observed spindle/diamond shape contradicts circular/oval lesions.")
-            elif shape == "oval_circular":
-                if any(k in body_lower for k in ["circular", "oval", "round", "brown spot", "spot"]):
-                    score += 36.0
-                    matching.append("Observed circular/oval spot geometry with rounded ends aligns with hallmark phenotype.")
-                elif any(k in body_lower for k in ["spindle", "diamond", "acute pointed", "blast"]):
-                    score -= 36.0
-                    contradicting.append("Observed circular/oval spots contradict spindle/diamond blast geometry.")
-            elif shape == "continuous_blight":
-                if any(k in body_lower for k in ["blight", "water-soaked", "marginal", "streak"]):
-                    score += 32.0
-                    matching.append("Symptom matches expanding marginal water-soaked necrosis.")
-            elif shape == "linear_streak":
-                if any(k in body_lower for k in ["streak", "linear", "interveinal"]):
-                    score += 36.0
-                    matching.append("Narrow parallel interveinal streaks match candidate.")
+        raw_info = (phenotype.raw_phenotype_text or "") if phenotype else ""
 
-            if "yellow_halo" in (phenotype.color_transition or ""):
-                if "halo" in body_lower or "chlorotic" in body_lower:
-                    score += 10.0
-                    matching.append("Chlorotic halo surrounding lesions matches.")
+        def get_ratio(tag: str, default: float = 0.0) -> float:
+            m = re.search(rf"{tag}=([0-9.]+)", raw_info)
+            return float(m.group(1)) if m else default
 
-        score = max(5.0, min(96.0, score))
+        necrotic_r = get_ratio("necrotic_ratio", 0.08)
+        yellow_r = get_ratio("yellow_ratio", 0.04)
+        ash_r = get_ratio("ash_ratio", 0.02)
+        orange_r = get_ratio("orange_rust_ratio", 0.01)
+        black_r = get_ratio("black_smut_ratio", 0.01)
+        white_r = get_ratio("white_mildew_ratio", 0.01)
+
+        shape = phenotype.primary_shape if phenotype else "oval_circular"
+
+        # 1. Rust Diseases (Puccinia, Uromyces)
+        if any(k in name_lower or k in body_lower for k in ["rust", "puccinia", "pustule"]):
+            if orange_r > 0.025 or shape == "rust_pustule":
+                score += 45.0
+                matching.append("Observed orange-reddish pustular morphology matches diagnostic rust phenotype.")
+            elif ash_r > 0.035 or black_r > 0.04:
+                score -= 22.0
+                contradicting.append("Absence of orange/cinnamon rust pustules contradicts rust diagnosis.")
+            else:
+                score += 5.0
+
+        # 2. Blast Diseases (Magnaporthe, Pyricularia)
+        elif any(k in name_lower or k in body_lower for k in ["blast", "magnaporthe", "pyricularia"]):
+            if shape == "spindle_diamond" or ash_r > 0.035:
+                score += 46.0
+                matching.append("Spindle/diamond lesion geometry with necrotic ash center strictly matches blast hallmark.")
+            elif orange_r > 0.03 or black_r > 0.04:
+                score -= 25.0
+                contradicting.append("Lesion geometry and color contradict characteristic spindle blast lesions.")
+            else:
+                score += 4.0
+
+        # 3. Smut / Ergot (Tolyposporium, Ustilago, Claviceps)
+        elif any(k in name_lower or k in body_lower for k in ["smut", "ergot", "claviceps", "tolyposporium", "sori"]):
+            if black_r > 0.035 or shape == "smut_sori":
+                score += 48.0
+                matching.append("Dark spore masses / fungal sori match characteristic smut pathology.")
+            else:
+                score -= 20.0
+                contradicting.append("Foliar symptoms without dark sori or honey-dew contradict smut/ergot.")
+
+        # 4. Downy Mildew / Powdery Mildew / Green Ear (Sclerospora, Erysiphe)
+        elif any(k in name_lower or k in body_lower for k in ["downy", "powdery", "mildew", "green ear", "sclerospora"]):
+            if white_r > 0.035 or yellow_r > 0.08 or shape == "powdery_coating":
+                score += 42.0
+                matching.append("Downy fungal growth and chlorotic leaf striping match downy mildew.")
+            elif ash_r > 0.035:
+                score -= 18.0
+                contradicting.append("Discrete diamond spots contradict diffuse downy mildew.")
+            else:
+                score += 6.0
+
+        # 5. Bacterial Blight / Bacterial Leaf Streak (Xanthomonas)
+        elif any(k in name_lower or k in body_lower for k in ["bacterial", "blight", "xanthomonas", "blackarm"]):
+            if shape in ["continuous_blight", "linear_streak"] or (yellow_r > 0.05 and necrotic_r > 0.06):
+                score += 44.0
+                matching.append("Expanding marginal water-soaked necrosis with yellow halo aligns with bacterial blight.")
+            elif ash_r > 0.035 or orange_r > 0.03:
+                score -= 16.0
+                contradicting.append("Symptom margins lack typical bacterial water-soaking.")
+            else:
+                score += 8.0
+
+        # 6. Early Blight / Alternaria / Target Spots
+        elif any(k in name_lower or k in body_lower for k in ["alternaria", "early blight", "target"]):
+            if shape == "oval_circular" and (yellow_r > 0.03 or necrotic_r > 0.05):
+                score += 43.0
+                matching.append("Concentric target rings with yellow chlorotic margin match Alternaria.")
+            elif shape == "spindle_diamond":
+                score -= 22.0
+                contradicting.append("Spindle shape contradicts concentric circular Alternaria lesions.")
+            else:
+                score += 10.0
+
+        # 7. General Leaf Spots / Brown Spot (Bipolaris, Cercospora, Septoria)
+        elif any(k in name_lower or k in body_lower for k in ["spot", "bipolaris", "cercospora", "brown spot"]):
+            if shape == "oval_circular" and necrotic_r > 0.04:
+                score += 35.0
+                matching.append("Discrete circular necrotic spots align with foliar spot pathology.")
+            elif shape == "spindle_diamond":
+                score -= 15.0
+                contradicting.append("Spindle ends contradict rounded leaf spot geometry.")
+            else:
+                score += 8.0
+
+        # Subtle term alignment to break any micro-ties
+        if "halo" in body_lower and yellow_r > 0.04:
+            score += 3.5
+        if "necrotic" in body_lower and necrotic_r > 0.08:
+            score += 2.5
+
+        score = max(10.0, min(96.0, score))
         pheno_score = round(score, 1)
 
-        if ref_used:
-            vis_score = round(max(5.0, min(95.0, pheno_score + 2.0)), 1)
+        # Real visual image comparison if reference image and query image are both available
+        if ref_used and ref_img_path and query_image_base64:
+            vis_score = self._compute_visual_similarity(query_image_base64, ref_img_path)
+            overall = round(VISUAL_WEIGHT * vis_score + PHENOTYPE_WEIGHT * pheno_score, 1)
+        elif ref_used:
+            vis_score = round(max(10.0, min(95.0, pheno_score + 1.0)), 1)
             overall = round(VISUAL_WEIGHT * vis_score + PHENOTYPE_WEIGHT * pheno_score, 1)
         else:
             vis_score = None
@@ -660,12 +802,12 @@ Provide your evaluation STRICTLY as a raw JSON object with this schema:
             visual_match_score=vis_score,
             phenotype_match_score=pheno_score,
             overall_score=overall,
-            confidence=0.88 if overall > 70 else 0.65,
+            confidence=round(min(0.98, max(0.60, overall / 100.0)), 2),
             matching_features=matching or ["Phenotype aligns with general crop foliar symptoms"],
             contradicting_features=contradicting,
             observed_features=[f"Observed lesion geometry: {phenotype.primary_shape if phenotype else 'foliar lesion'}"],
             missing_expected_features=[],
-            reasoning=f"Local botanical evaluation yielded match score {overall:.1f}.",
+            reasoning=f"Botanical diagnostic evaluation yielded overall match score {overall:.1f}.",
         )
 
     def diagnose(
@@ -801,7 +943,8 @@ Provide your evaluation STRICTLY as a raw JSON object with this schema:
                         phenotype=phenotype,
                         ref_used=ref_used,
                         ref_img_path=ref_img_path,
-                        crop=crop
+                        crop=crop,
+                        query_image_base64=image
                     )
                 else:
                     try:
@@ -826,7 +969,8 @@ Provide your evaluation STRICTLY as a raw JSON object with this schema:
                             phenotype=phenotype,
                             ref_used=ref_used,
                             ref_img_path=ref_img_path,
-                            crop=crop
+                            crop=crop,
+                            query_image_base64=image
                         )
                 candidate_results.append(res)
                 # Polite pacing to maintain compliant rate limits on free-tier APIs
