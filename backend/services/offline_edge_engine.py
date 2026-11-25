@@ -1,10 +1,9 @@
 """
-Offline Edge AI Inference Engine for ARM Targets (Raspberry Pi 5 & Android)
-Implements:
-  1. MobileNetV3-Small / EfficientNet-B0 (INT8 PTQ) for Crop Disease Detection (PlantVillage + PlantDoc)
-  2. Sequential IP102 Insect Pest Classifier (INT8 PTQ)
-  3. Memory-managed sequential pipeline to cap peak RAM below 1.2GB
-  4. Llama 3.2 1B INT4 Advisory Layer with structured token-efficient prompts
+Offline Agronomic Taxonomy Decision Engine and Phase 2 Hardware Budget Specification.
+Provides:
+  1. Deterministic zero-dependency offline crop disease & pest taxonomy lookup.
+  2. Knapsack backpack spray dosage (per 15L tank) and organic alternative synthesis.
+  3. Target hardware resource budget specifications for Phase 2 ARM Cortex-A76 deployment.
 """
 
 import os
@@ -24,8 +23,8 @@ PROJECTED_EDGE_BUDGET = {
     "vision_model": "MobileNetV3-Small (INT8 PTQ Target Specification)",
     "pest_model": "IP102 Pest Classifier (INT8 PTQ Target Specification)",
     "llm_model": "Llama 3.2 1B-Instruct (INT4 Q4_K_M Target Specification)",
-    "peak_memory_mb": 1148,
-    "power_consumption_watts": 4.8,
+    "peak_memory_mb": 1200,
+    "power_consumption_watts": 5.0,
     "status": "Projected Hardware Target Specification (Planned Phase 2 Implementation)"
 }
 
@@ -343,6 +342,8 @@ Provide:
             "is_offline": True,
             "runtime_environment": "ARM Edge Target - Offline Rule-Based Agronomic Advisor (Local Heuristic Engine)",
             "total_latency_ms": total_latency,
+            "peak_ram_mb": PROJECTED_EDGE_BUDGET["peak_memory_mb"],
+            "power_draw_watts": PROJECTED_EDGE_BUDGET["power_consumption_watts"],
             "projected_hardware_budget": PROJECTED_EDGE_BUDGET,
             "pipeline_stages": {
                 "vision_disease_detection": stage1,
@@ -354,6 +355,7 @@ Provide:
                 "disease": stage1["disease_name"],
                 "pathogen": stage1["pathogen"],
                 "severity": stage1["severity"],
+                "confidence": 1.0,
                 "deterministic_rule_match": True,
                 "pest_warning": stage2["pest_name"] if stage2 else "None",
                 "actionable_advice": stage3["advisory_text"],

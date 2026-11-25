@@ -117,7 +117,7 @@ export const analyzeLeafWithGroq = async (base64Image, lang = 'en', options = {}
           crop: finalD.crop,
           diagnosis: finalD.disease,
           pathogen: finalD.pathogen,
-          confidence: finalD.confidence,
+          confidence: finalD.confidence !== undefined ? finalD.confidence : 1.0,
           severity: finalD.severity,
           pestDetected: finalD.pest_warning,
           plainAdviceEn: finalD.actionable_advice,
